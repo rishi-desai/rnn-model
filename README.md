@@ -41,7 +41,7 @@ Install the required Python packages using:
 pip3 install -r requirements.txt
 ```
 
-### Step 6: Verify Installation
+### Step 5: Verify Installation
 Check that all required packages are installed:
 ```bash
 pip3 list
@@ -50,17 +50,34 @@ pip3 list
 ## Usage
 
 ### Command-Line Interface (CLI)
-Run the pipeline using the `run_pipeline.py` script:
+Run the pipeline using the `pipeline.py` script:
+
+#### Training the Model
 ```bash
-python run_pipeline.py --csv <path_to_csv> --model_path <path_to_save_model>
+python pipeline.py train <path_to_csv> --epochs <num_epochs> --batch <batch_size>
+```
+- `<path_to_csv>`: Path to the CSV file containing timestamped adjusted closing prices.
+- `--epochs`: (Optional) Number of training epochs. Default is 30.
+- `--batch`: (Optional) Batch size for training. Default is 64.
+- You can also edit the epochs, batch size, etc directly in the pipeline.py file, there
+  it will also tell you what adjusting them does and how it affects the resulting model
+
+#### Example
+```bash
+python pipeline.py train data.csv --epochs 40 --batch 32
 ```
 
-- `--csv`: Path to the CSV file containing timestamped adjusted closing prices.
-- `--model_path`: (Optional) Path to save or load the trained model. Default is `lstm_model`.
-
-### Example
+#### Making Predictions
 ```bash
-python run_pipeline.py --csv data.csv
+python pipeline.py infer <price_1> <price_2> ... <price_30>
+```
+- Provide exactly 30 recent adjusted closing prices (oldest to newest).
+
+#### Example
+```bash
+python pipeline.py infer 101.2 101.4 101.1 101.8 102.0 102.2 102.4 102.1 102.5 102.9 \
+103.1 103.4 103.2 103.8 104.0 104.3 104.5 104.8 105.0 105.2 \
+105.5 105.7 105.8 106.0 106.3 106.5 106.7 107.0 107.2 107.4
 ```
 
 ## Input CSV Format
@@ -77,11 +94,6 @@ timestamp,adjusted_close
 ```
 
 ## Output
-- The trained model is saved as a TensorFlow artifact.
+- The trained model is saved in the `model_artifact` directory as `lstm.h5`.
+- Metadata about the training process is saved as `meta.pkl` in the same directory.
 - The script prints the predicted next-bar return percentage for a sample input.
-
-## Optional GUI (Coming Soon)
-A graphical user interface (GUI) will be added to make the pipeline even more accessible.
-
-## License
-This project is licensed under the MIT License.

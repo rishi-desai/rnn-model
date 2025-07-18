@@ -24,6 +24,7 @@ from tensorflow.keras import layers, models, callbacks
 WINDOW = 30          # 👉 How many bars of history feed the model.
                      #    • Bigger = more context but slower + risk of stale info.
                      #    • Smaller = snappier, reacts faster but may miss patterns.
+                     #    • If you adjust this value, ensure when you infer you provide the same window size.
 
 VAL_SPLIT = 0.10     # 👉 Portion of data held out for validation (10% by default).
                      #    • Raise to 0.2 if you want stricter overfitting checks.
@@ -56,7 +57,7 @@ def load_prices(csv_path: str) -> pd.Series:
     """
     Reads <timestamp, adj_close> CSV.
 
-    csv_path : str  – e.g. 'prices.csv'
+    csv_path : str  - e.g. 'prices.csv'
     returns   : pd.Series of floats indexed by timestamp
     """
     df = pd.read_csv(csv_path, parse_dates=[0], index_col=0)
@@ -75,8 +76,8 @@ def make_windows(prices: pd.Series, window: int = WINDOW):
 
     returns
     -------
-    X : (N, window, 1) float32  – normalized %-shape windows
-    y : (N, 1)        float32  – next-bar return in %
+    X : (N, window, 1) float32  - normalized %-shape windows
+    y : (N, 1)        float32  - next-bar return in %
     """
     p = prices.values
     X, y = [], []
@@ -242,6 +243,7 @@ def _cli():
         train(args.csv, args.epochs, args.batch)
     else:
         pct = ReturnForecaster().forecast(args.prices)
+        print(f"RAW: {pct:+.6f} %")           # <— extra precision
         print(f"Forecasted next-bar return: {pct:+.2f} %")
 
 

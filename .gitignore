@@ -1,0 +1,8 @@
+# Ignore virtual environment
+venv/
+
+# Ignore data directory
+data/
+
+# Ignore model artifacts
+model_artifact/

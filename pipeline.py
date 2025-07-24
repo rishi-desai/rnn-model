@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras import layers, models, callbacks
+import yfinance as yf
 
 
 # ===========================================================================
@@ -68,6 +69,24 @@ def load_prices(csv_path: str) -> pd.Series:
 
     # Enforce chronological order & drop NaNs.
     return df.iloc[:, 0].sort_index().dropna()
+
+
+def fetch_prices(ticker: str, period: str = "max") -> pd.Series:
+    """
+    Downloads historical adjusted close prices for a ticker via yfinance.
+    """
+    # Ensure we retrieve raw Adj Close column
+    df = yf.download(ticker, period=period, auto_adjust=False)
+    # Determine which column to use for adjusted prices
+    if "Adj Close" in df.columns:
+        price_col = "Adj Close"
+    elif "Close" in df.columns:
+        price_col = "Close"
+    else:
+        raise ValueError(f"No 'Adj Close' or 'Close' data for ticker: {ticker}")
+    series = df[price_col].dropna()
+    series.index = pd.to_datetime(series.index)
+    return series.sort_index()
 
 
 def make_windows(prices: pd.Series, window: int = WINDOW):
@@ -129,13 +148,18 @@ def build_model(input_len: int = WINDOW) -> tf.keras.Model:
 # 4. TRAINING LOOP
 # ===========================================================================
 
-def train(csv_path: str,
+def train(csv_path: str = None,
+          ticker: str = None,
+          period: str = "max",
           epochs: int = EPOCHS,
           batch: int  = BATCH_SIZE):
     """
     High-level one-call trainer.
     """
-    prices = load_prices(csv_path)
+    if ticker:
+        prices = fetch_prices(ticker, period)
+    else:
+        prices = load_prices(csv_path)
     X, y   = make_windows(prices)
 
     # ── Train / Val split
@@ -226,7 +250,10 @@ def _cli():
 
     # TRAIN
     t = sub.add_parser("train")
-    t.add_argument("csv", help="CSV file with <timestamp, adj_close>")
+    group = t.add_mutually_exclusive_group(required=True)
+    group.add_argument("--csv", help="CSV file with <timestamp, adj_close>")
+    group.add_argument("--ticker", help="Ticker symbol for automatic data fetch")
+    t.add_argument("--period", default="max", help="Period for ticker data (e.g., 1y, 5y, max)")
     t.add_argument("--epochs", type=int, default=EPOCHS,
                    help=f"How many passes over data (default {EPOCHS}).")
     t.add_argument("--batch",  type=int, default=BATCH_SIZE,
@@ -236,15 +263,23 @@ def _cli():
     i = sub.add_parser("infer")
     i.add_argument("prices", nargs=WINDOW, type=float,
                    help=f"Exactly {WINDOW} latest adjusted closes, oldest → newest.")
+    i.add_argument("--ticker", help="Ticker symbol for automatic inference")
 
     args = p.parse_args()
 
     if args.cmd == "train":
-        train(args.csv, args.epochs, args.batch)
+        train(csv_path=args.csv, ticker=args.ticker, period=args.period, epochs=args.epochs, batch=args.batch)
     else:
-        pct = ReturnForecaster().forecast(args.prices)
-        print(f"RAW: {pct:+.6f} %")           # <— extra precision
-        print(f"Forecasted next-bar return: {pct:+.2f} %")
+        if args.ticker:
+            series = fetch_prices(args.ticker, period="max")
+            latest = list(series.values[-WINDOW:])
+            pct = ReturnForecaster().forecast(latest)
+            print(f"RAW: {pct:+.6f} %")
+            print(f"Forecasted next-bar return: {pct:+.2f} %")
+        else:
+            pct = ReturnForecaster().forecast(args.prices)
+            print(f"RAW: {pct:+.6f} %")
+            print(f"Forecasted next-bar return: {pct:+.2f} %")
 
 
 # Boot if run as script
